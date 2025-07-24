@@ -23,6 +23,20 @@ public class OrderRoute extends RouteBuilder {
             .process(new ItemProcessor())
             .aggregate(constant(true), new OrderAggregator())
                 .completionSize(3)
-            .log("Finished order: ${body}");
+            .log("Finished order: ${body}")
+            .multicast()
+                .to("direct:audit", "direct:finalRoute")
+            .end();
+
+        from("direct:audit")
+            .log("[AUDIT] ${body}");
+
+        from("direct:finalRoute")
+            .choice()
+                .when(body().contains("VIP"))
+                    .log("[VIP] Sent to priority queue: ${body}")
+                .otherwise()
+                    .log("[NORMAL] Sent to default queue: ${body}")
+            .end();
     }
 }
